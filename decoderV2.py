@@ -73,39 +73,63 @@ def decifar_subtituicao(texto_cifrado, chave):
     
     return texto_cifrado.upper().translate(mapa_traducao)
 
-def hill_climbing_substitution(texto_cifrado, analisador, max_iteracoes=3000):
+def hill_climbing_substitution(texto_cifrado, analisador, max_iteracoes=4000):
     """
     Quebra a cifra de substituição usando hill climbing
     """
-    # Começa com chave aleatória
-    melhor_chave_lista = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-    random.shuffle(melhor_chave_lista)
-    melhor_chave = "".join(melhor_chave_lista)
+    melhor_chave_global = None
+    melhor_pontuacao_global = float('-inf')
     
-    # Calcula pontuação inicial
-    melhor_pontuacao = analisador.calcular_pontuacao(
-        decifar_subtituicao(texto_cifrado, melhor_chave)
-    )
-    
-    # Algoritmo de hill climbing
-    for _ in range(max_iteracoes):
-        # Cria nova chave trocando duas letras aleatórias
-        nova_chave_lista = list(melhor_chave)
-        i, j = random.sample(range(26), 2)
-        nova_chave_lista[i], nova_chave_lista[j] = nova_chave_lista[j], nova_chave_lista[i]
-        nova_chave = "".join(nova_chave_lista)
+    for _ in range(3):
+        # Começa com chave aleatória
+        chave_inicial = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        random.shuffle(chave_inicial)
         
-        # Testa a nova chave
-        novo_texto = decifar_subtituicao(texto_cifrado, nova_chave)
-        nova_pontuacao = analisador.calcular_pontuacao(novo_texto)
+        melhor_chave = "".join(chave_inicial)
+        melhor_pontuacao = analisador.calcular_pontuacao(
+            decifar_subtituicao(texto_cifrado, melhor_chave)
+        )
         
-        # Tentativa e erro até achar melhor chave, se melhorou a pontuação entçao atualiza
-        if nova_pontuacao > melhor_pontuacao:
-            melhor_chave = nova_chave
-            melhor_pontuacao = nova_pontuacao
+        # Temperatura inicial para simulated annealing
+        temperatura = 20
+        resfriamento = 0.95
+        
+        # Algoritmo de hill climbing com simulated annealing
+        sem_melhoria = 0
+        for iteracao in range(max_iteracoes):
+            # Cria nova chave trocando duas letras aleatórias
+            nova_chave_lista = list(melhor_chave)
+            i, j = random.sample(range(26), 2)
+            nova_chave_lista[i], nova_chave_lista[j] = nova_chave_lista[j], nova_chave_lista[i]
+            nova_chave = "".join(nova_chave_lista)
+            
+            # Testa a nova chave
+            novo_texto = decifar_subtituicao(texto_cifrado, nova_chave)
+            nova_pontuacao = analisador.calcular_pontuacao(novo_texto)
+            
+            # Aceita se melhor ou probabilisticamente se pior
+            delta = nova_pontuacao - melhor_pontuacao
+            if delta > 0 or (temperatura > 0.01 and random.random() < math.exp(delta/temperatura)):
+                melhor_chave = nova_chave
+                melhor_pontuacao = nova_pontuacao
+                sem_melhoria = 0
+            else:
+                sem_melhoria += 1
+            
+            if iteracao % 100 == 0:
+                temperatura *= resfriamento
+            
+            if sem_melhoria > 500:
+                temperatura = max(temperatura * 2, 5)
+                sem_melhoria = 0
+        
+        # Atualiza melhor resultado global
+        if melhor_pontuacao > melhor_pontuacao_global:
+            melhor_chave_global = melhor_chave
+            melhor_pontuacao_global = melhor_pontuacao
 
-    texto_decifrado = decifar_subtituicao(texto_cifrado, melhor_chave)
-    return melhor_chave, texto_decifrado
+    texto_decifrado = decifar_subtituicao(texto_cifrado, melhor_chave_global)
+    return melhor_chave_global, texto_decifrado
 #endregion
 
 #region ==================== PARTE 4: ANALISADOR DE TEXTO ====================
